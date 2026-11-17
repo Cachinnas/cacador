@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caçador de Sites</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: ferramenta de caçada. Formulário no topo, progresso, resumo, lista ranqueada, exportação. Tema único escuro. */
+:root{
+  --bg:#0d1117; --surface:#161c26; --raised:#1c2431; --line:#263041;
+  --ink:#e8edf4; --muted:#8d98aa; --accent:#ff8a3d;
+  --hot:#ff5c4d; --warm:#f5b03c; --cold:#5aa3ff; --off:#5d6779; --good:#39c58a;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 60px;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+h1{font:800 clamp(26px,5vw,36px)/1.05 var(--display);margin:0;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--accent)}
+h2{font:700 19px/1.2 var(--display);margin:0;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{color:var(--muted);text-decoration:none;padding:10px 14px;font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs a[aria-current="page"]{color:var(--ink);border-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{display:none;flex-direction:column;gap:18px}
+.view.on{display:flex}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:600;font-size:14px}
+.field small{color:var(--muted);font-size:12px}
+input[type=text],input[type=password],input[type=number],input[type=search],select,textarea{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:14px var(--body);width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font:500 13px var(--body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:#1b0f05;border-color:var(--accent)}
+.chip.f[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 14px;font:600 14px var(--body);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1b0f05}
+.btn.sm{padding:6px 11px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:progress}
+.keybox{display:flex;gap:8px}
+.keystate{font-size:13px}
+.keystate.ok{color:var(--good)} .keystate.no{color:var(--warm)}
+.progress{display:none;flex-direction:column;gap:8px}
+.progress.on{display:flex}
+.track{height:8px;background:#ffffff10;border-radius:99px;overflow:hidden}
+.track i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.log{font:13px var(--mono);color:var(--muted);max-height:120px;overflow:auto;white-space:pre-wrap}
+.err{color:#ff8e83;font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.tile b{font:800 28px/1 var(--display);font-variant-numeric:tabular-nums}
+.tile span{color:var(--muted);font-size:13px}
+.tile.hot b{color:var(--hot)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filters input{width:auto;flex:1;min-width:160px}
+.filters select{width:auto}
+.list{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--off);border-radius:12px;padding:14px;display:grid;grid-template-columns:64px 1fr;gap:14px}
+.card[data-faixa="Quente"]{border-left-color:var(--hot)}
+.card[data-faixa="Morno"]{border-left-color:var(--warm)}
+.card[data-faixa="Frio"]{border-left-color:var(--cold)}
+.score{width:64px;height:64px;position:relative}
+.score svg{transform:rotate(-90deg)}
+.score b{position:absolute;inset:0;display:grid;place-items:center;font:500 18px var(--mono)}
+.main{display:flex;flex-direction:column;gap:8px;min-width:0}
+.name{font:600 17px/1.25 var(--body);margin:0}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:#ffffff12}
+.pill.Quente{background:#ff5c4d26;color:#ff8e83}
+.pill.Morno{background:#f5b03c24;color:#f7c56a}
+.pill.Frio{background:#5aa3ff24;color:#8fc0ff}
+.pill.Redesign{background:#ffffff10;color:var(--muted)}
+.meta{color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:4px 14px;font-variant-numeric:tabular-nums}
+.meta a{color:var(--muted)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.status{width:auto;padding:6px 8px;font-size:13px}
+.breakdown{display:none;grid-column:1/-1;border-top:1px dashed var(--line);padding-top:10px}
+.card.open .breakdown{display:block}
+.bars{display:grid;grid-template-columns:110px 1fr 52px;gap:6px 10px;align-items:center;font-size:13px}
+.bar{height:8px;border-radius:99px;background:#ffffff10;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bars .v{font-family:var(--mono);text-align:right;color:var(--muted)}
+.empty{border:1px dashed var(--line);border-radius:14px;padding:28px 18px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.step{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.step small{font-family:var(--mono);color:var(--accent)}
+.step p{color:var(--muted);font-size:14px}
+ol.how{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--muted)}
+ol.how b{color:var(--ink)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+td.n{font-family:var(--mono);text-align:right;white-space:nowrap}
+.tablebox{overflow-x:auto}
+.split{display:grid;grid-template-columns:3fr 5fr 2fr;height:46px;border-radius:10px;overflow:hidden;font-weight:600;font-size:14px}
+.split div{display:grid;place-items:center;color:#0d1117}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.role{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.role b{font:800 24px/1 var(--display)}
+.role ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.calcout{display:flex;flex-wrap:wrap;gap:18px;font-variant-numeric:tabular-nums}
+.calcout span{color:var(--muted);font-size:13px}
+.calcout b{display:block;font:500 18px var(--mono)}
+.hist{display:flex;flex-direction:column;gap:6px}
+.hist button{text-align:left}
+dialog{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(560px,calc(100% - 32px))}
+dialog::backdrop{background:#000a}
+dialog form{display:flex;flex-direction:column;gap:12px}
+dialog textarea{min-height:230px;resize:vertical;line-height:1.5}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-weight:600;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+@media (max-width:720px){
+  .grid2,.steps,.roles{grid-template-columns:1fr}
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  .bars{grid-template-columns:90px 1fr 44px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15" fill="none" stroke="#ff8a3d" stroke-width="2"/><circle cx="17" cy="17" r="9" fill="none" stroke="#ff8a3d" stroke-opacity=".5" stroke-width="2"/><circle cx="17" cy="17" r="3" fill="#ff8a3d"/><path d="M17 17 L30 9" stroke="#ff8a3d" stroke-width="2" stroke-linecap="round"/></svg>
+      <h1>Caçador de <em>Sites</em></h1>
+    </div>
+    <span class="muted small" id="keyBadge"></span>
+  </header>
+
+  <nav class="tabs" aria-label="Seções">
+    <a href="#cacar" data-view="cacar">Caçar</a>
+    <a href="#resultados" data-view="resultados">Resultados</a>
+    <a href="#configurar" data-view="configurar">Configurar</a>
+    <a href="#metodo" data-view="metodo">Como funciona</a>
+    <a href="#sociedade" data-view="sociedade">Sociedade</a>
+  </nav>
+
+  <!-- CAÇAR -->
+  <section class="view" id="v-cacar">
+    <form class="panel" id="huntForm">
+      <h2>Nova caçada</h2>
+      <div class="field">
+        <label>Nichos</label>
+        <div class="chips" id="nichoChips"></div>
+        <input type="text" id="nichoExtra" placeholder="Outros nichos, separados por vírgula: pet shop, academia">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="cidade">Cidade</label>
+          <input type="text" id="cidade" value="Natal RN" required>
+        </div>
+        <div class="field">
+          <label for="bairros">Bairros ou regiões</label>
+          <input type="text" id="bairros" placeholder="Ponta Negra, Lagoa Nova, Tirol">
+          <small>Vazio busca a cidade toda. Cada bairro vira uma busca a mais e traz negócios diferentes.</small>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="minAv">Mínimo de avaliações</label>
+          <input type="number" id="minAv" value="10" min="0" step="5">
+          <small>Abaixo disso o negócio ainda é pequeno demais pra pagar um site.</small>
+        </div>
+        <div class="field">
+          <label for="porBusca">Resultados por busca</label>
+          <select id="porBusca"><option>10</option><option selected>20</option></select>
+          <small>O Google entrega no máximo 20 por busca.</small>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn primary" type="submit" id="goBtn">Começar caçada</button>
+        <button class="btn" type="button" id="demoBtn">Ver exemplo de Natal</button>
+        <span class="small muted" id="estimate"></span>
+      </div>
+      <p class="err" id="formErr" role="alert"></p>
+      <div class="progress" id="progress">
+        <div class="track"><i id="bar"></i></div>
+        <div class="log" id="log"></div>
+      </div>
+    </form>
+    <div class="panel">
+      <h2>Caçadas anteriores</h2>
+      <div class="hist" id="hist"></div>
+    </div>
+  </section>
+
+  <!-- RESULTADOS -->
+  <section class="view" id="v-resultados">
+    <div id="resHead" class="muted small"></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="toolbar">
+      <div class="filters">
+        <div class="chips" id="faixaChips"></div>
+        <input type="search" id="busca" placeholder="Buscar nome ou bairro" aria-label="Buscar">
+      </div>
+      <div class="row">
+        <button class="btn sm" id="xlsxBtn">Baixar Excel</button>
+        <button class="btn sm" id="csvBtn">Baixar CSV</button>
+        <button class="btn sm" id="copyTsvBtn">Copiar pra planilha</button>
+      </div>
+    </div>
+    <p class="small muted" id="count"></p>
+    <div class="list" id="list"></div>
+  </section>
+
+  <!-- CONFIGURAR -->
+  <section class="view" id="v-configurar">
+    <div class="panel">
+      <h2>Chave do Google</h2>
+      <p class="muted">O site usa a busca oficial do Google Maps. Cada pessoa da dupla coloca a própria chave uma vez; ela fica salva só no navegador dela.</p>
+      <div class="field">
+        <label for="apiKey">Chave da API</label>
+        <div class="keybox">
+          <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off">
+          <button class="btn" type="button" id="saveKey">Salvar</button>
+        </div>
+        <span class="keystate" id="keyState"></span>
+      </div>
+      <div class="field">
+        <label for="seuNome">Seu nome nas mensagens</label>
+        <input type="text" id="seuNome" value="Caio">
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Como tirar a chave (uns 10 minutos, uma vez só)</h2>
+      <ol class="how">
+        <li>Entre em <b>console.cloud.google.com</b> com sua conta Google e crie um projeto, por exemplo "cacador".</li>
+        <li>Em <b>Faturamento</b>, cadastre um cartão. O Google dá uma cota mensal grátis; confira os valores na página de preços da Places API antes de usar muito.</li>
+        <li>Em <b>APIs e serviços › Biblioteca</b>, ative a <b>Maps JavaScript API</b> e a <b>Places API (New)</b>.</li>
+        <li>Em <b>APIs e serviços › Credenciais</b>, clique em <b>Criar credenciais › Chave de API</b> e copie a chave.</li>
+        <li>Na chave, em <b>Restrições de aplicativo</b>, escolha <b>Sites</b> e adicione o endereço onde o site estiver publicado. Em <b>Restrições de API</b>, deixe só as duas APIs acima.</li>
+        <li>Em <b>Orçamentos e alertas</b>, crie um alerta de gasto baixo pra nunca ter surpresa.</li>
+        <li>Cole a chave aqui em cima e salve.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- COMO FUNCIONA -->
+  <section class="view" id="v-metodo">
+    <div class="panel">
+      <h2>Do Google Maps até a mensagem</h2>
+      <div class="steps">
+        <div class="step"><small>01 · busca</small><b>Busca cada combinação</b><p>Cada nicho em cada bairro vira uma busca. Repetidos são removidos.</p></div>
+        <div class="step"><small>02 · presença</small><b>Lê o site da ficha</b><p>Separa quem não tem nada, quem só tem Instagram e quem usa página genérica.</p></div>
+        <div class="step"><small>03 · nota</small><b>Pontua de 0 a 100</b><p>Muita avaliação, nota alta e nenhum site próprio: nota máxima.</p></div>
+        <div class="step"><small>04 · gancho</small><b>Monta a mensagem</b><p>Texto com os números reais do negócio, pronto pro WhatsApp.</p></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>De onde vêm os pontos</h2>
+      <div class="tablebox"><table>
+        <thead><tr><th>Critério</th><th>Situação</th><th style="text-align:right">Pontos</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="4"><b>Presença</b><br><span class="small muted">até 40</span></td><td>Sem site</td><td class="n">40</td></tr>
+          <tr><td>Só Instagram, Facebook, WhatsApp ou Linktree</td><td class="n">35</td></tr>
+          <tr><td>Página de terceiros (Wix grátis, Trinks, diretório)</td><td class="n">30</td></tr>
+          <tr><td>Site próprio (vai pra lista de redesign)</td><td class="n">0</td></tr>
+          <tr><td><b>Tração</b><br><span class="small muted">até 25</span></td><td>500+ · 200+ · 100+ · 50+ · 20+ · 10+ avaliações</td><td class="n">25 · 21 · 17 · 13 · 8 · 4</td></tr>
+          <tr><td><b>Reputação</b><br><span class="small muted">até 15</span></td><td>Nota 4,8+ · 4,5+ · 4,0+ · abaixo de 4 vira Frio</td><td class="n">15 · 11 · 6 · 0</td></tr>
+          <tr><td><b>Ticket</b><br><span class="small muted">até 10</span></td><td>Saúde, estética, advocacia, arquitetura · salão, academia · comida, pet</td><td class="n">10 · 7 · 6</td></tr>
+          <tr><td><b>Contato</b><br><span class="small muted">até 10</span></td><td>Celular · só fixo · nenhum</td><td class="n">10 · 6 · 0</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Quente de 80 a 100 · Morno de 65 a 79 · Frio abaixo disso ou com nota menor que 4 · Redesign quando já tem site próprio.</p>
+    </div>
+  </section>
+
+  <!-- SOCIEDADE -->
+  <section class="view" id="v-sociedade">
+    <div class="panel">
+      <h2>Proposta: dividir por função</h2>
+      <div class="split" role="img" aria-label="30% venda, 50% produção, 20% caixa"><div style="background:#f5b03c">Venda 30%</div><div style="background:#ff8a3d">Produção 50%</div><div style="background:#5aa3ff">Caixa 20%</div></div>
+      <div class="roles">
+        <div class="role"><b style="color:#f5b03c">Caçador</b><ul><li>Roda o caçador e escolhe os quentes</li><li>Faz o primeiro contato e marca a conversa</li><li>Acompanha até fechar e cobra</li></ul></div>
+        <div class="role"><b style="color:#ff8a3d">Produção</b><ul><li>Briefing por tipo de negócio</li><li>Direção de arte e construção</li><li>Ajustes e entrega</li></ul></div>
+        <div class="role"><b style="color:#5aa3ff">Caixa</b><ul><li>Domínio, hospedagem, ferramentas</li><li>Anúncio e material de venda</li><li>Reserva pra meses fracos</li></ul></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Simulador de uma venda</h2>
+      <div class="grid2">
+        <div class="field"><label for="valor">Valor do site (R$)</label><input id="valor" type="number" min="0" step="50" value="1200"></div>
+        <div class="field"><label for="mensal">Manutenção mensal por cliente (R$)</label><input id="mensal" type="number" min="0" step="10" value="100"></div>
+      </div>
+      <div class="calcout" id="calcout"></div>
+    </div>
+    <div class="panel">
+      <h2>Regras combinadas</h2>
+      <ol class="how">
+        <li><b>Cliente da dupla é da dupla.</b> Quem chegou pelo caçador não é atendido por fora.</li>
+        <li><b>Quem produz, leva a produção.</b> Se o caçador montar um site inteiro, fica com os 50% daquele site.</li>
+        <li><b>Manutenção mensal em todo cliente.</b> Vira receita fixa e segue a mesma divisão.</li>
+        <li><b>Domínios e contas no nome da empresa.</b> Nada some se alguém sair.</li>
+        <li><b>Revisão em 3 meses.</b> A divisão muda conforme o que cada um estiver fazendo.</li>
+      </ol>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h2 id="dlgTitle">Mensagem</h2>
+    <label for="msg" class="small muted">Edite à vontade antes de mandar.</label>
+    <textarea id="msg"></textarea>
+    <p class="small muted" id="dlgPhone"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" value="cancel">Fechar</button>
+      <button class="btn" type="button" id="copyBtn">Copiar</button>
+      <a class="btn primary" id="waBtn" href="#" target="_blank" rel="noopener">Abrir no WhatsApp</a>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const DEMO = [{"nome":"Odontologia Integrada Natal","nicho":"odonto","nota":4.9,"avaliacoes":929,"telefone":"(84) 99145-8034","presenca":"Sem site","site":"","endereco":"Way Office, Av. Sen. Salgado Filho, 1718"},{"nome":"Clínica Alian","nicho":"odonto","nota":4.6,"avaliacoes":1020,"telefone":"(84) 98814-1411","presenca":"Sem site","site":"","endereco":"Av. Sen. Salgado Filho, 1718, Tirol"},{"nome":"Instituto Brio (Estética e Pós-Op)","nicho":"estetica","nota":5.0,"avaliacoes":124,"telefone":"(84) 99811-3344","presenca":"Só rede social","site":"instagram.com/brio.clinicarn","endereco":"R. Dom Joaquim de Almeida, 1762"},{"nome":"Cofam Clínica Odontológica Familiar","nicho":"odonto","nota":4.9,"avaliacoes":74,"telefone":"(84) 3201-0551","presenca":"Sem site","site":"","endereco":"R. Alberto Silva, 1284, Barro Vermelho"},{"nome":"Clínica Officina Odontológica","nicho":"odonto","nota":5.0,"avaliacoes":24,"telefone":"(84) 99196-1500","presenca":"Sem site","site":"","endereco":"Av. Nevaldo Rocha, 4515, Morro Branco"},{"nome":"Urgência SOS Odonto 24h","nicho":"odonto","nota":4.8,"avaliacoes":92,"telefone":"(84) 99966-3788","presenca":"Só rede social","site":"instagram.com/odonto.sos","endereco":"Av. Miguel Castro, 2385, Loja 4"},{"nome":"Dentista 24h","nicho":"odonto","nota":4.8,"avaliacoes":46,"telefone":"(84) 99975-1708","presenca":"Sem site","site":"","endereco":"Av. Amintas Barros, 3061, Lagoa Nova"},{"nome":"Sorriso & Cia Clínica Odontológica","nicho":"odonto","nota":4.9,"avaliacoes":42,"telefone":"(84) 98763-0907","presenca":"Sem site","site":"","endereco":"R. Djalma Maranhão, 469 B"},{"nome":"Renovare Estética e Odontologia","nicho":"odonto","nota":4.8,"avaliacoes":50,"telefone":"(84) 99935-1975","presenca":"Só rede social","site":"instagram.com/renovareesteticaeodonto","endereco":"Av. Nascimento de Castro, 1975"},{"nome":"Ana França Estética","nicho":"estetica","nota":4.9,"avaliacoes":58,"telefone":"(84) 99498-6335","presenca":"Só rede social","site":"instagram.com/_anafrancaestetica","endereco":"Av. Rui Barbosa, 344b, Lagoa Nova"},{"nome":"Kelly Oliveira Beauty","nicho":"estetica","nota":5.0,"avaliacoes":20,"telefone":"(84) 98767-4207","presenca":"Sem site","site":"","endereco":"Av. Antônio Basílio, 4023"},{"nome":"Rejuv For You","nicho":"estetica","nota":5.0,"avaliacoes":183,"telefone":"(84) 98861-1961","presenca":"Página de terceiros","site":"trinks.com (agendamento)","endereco":"Av. Xavier da Silveira, 357"},{"nome":"Oral Clinic Natal","nicho":"odonto","nota":4.4,"avaliacoes":78,"telefone":"(84) 99497-6147","presenca":"Sem site","site":"","endereco":"Av. Romualdo Galvão, 1559, Lagoa Nova"},{"nome":"Affinity Odontologia Integrada","nicho":"odonto","nota":4.9,"avaliacoes":73,"telefone":"(84) 2010-7019","presenca":"Só rede social","site":"instagram.com/affinityodonto","endereco":"HC Plaza, Torre II, Av. Rui Barbosa"},{"nome":"IOP Ortoestética Lagoa Nova","nicho":"odonto","nota":4.6,"avaliacoes":106,"telefone":"(84) 3222-2288","presenca":"Só rede social","site":"instagram.com/iop_odontologia","endereco":"Av. Antônio Basílio, 3006, Sl 28"},{"nome":"Clínica Oral Essence","nicho":"odonto","nota":4.7,"avaliacoes":104,"telefone":"(84) 3234-1702","presenca":"Só rede social","site":"facebook.com","endereco":"Av. Nascimento de Castro, 1798"},{"nome":"Soul Odontologia","nicho":"odonto","nota":5.0,"avaliacoes":112,"telefone":"(84) 2030-8862","presenca":"Página de terceiros","site":"drtiagopacheco.wixsite.com/soul","endereco":"R. Jaguarari, Lagoa Nova"},{"nome":"Dr. Maycon Douglas (Facetas)","nicho":"odonto","nota":5.0,"avaliacoes":47,"telefone":"(84) 99945-3811","presenca":"Só rede social","site":"instagram.com/dentistamaycon","endereco":"CTC Torre B, Av. Amintas Barros, 3700"},{"nome":"Fernanda Raquel Beauty Academy","nicho":"estetica","nota":5.0,"avaliacoes":65,"telefone":"(84) 98869-7583","presenca":"Página de terceiros","site":"frbeauty.odoo.com","endereco":"Av. Rui Barbosa, 344, Lagoa Nova"},{"nome":"Massoterapeuta Dionísio","nicho":"estetica","nota":4.9,"avaliacoes":39,"telefone":"(84) 99473-8695","presenca":"Só rede social","site":"instagram.com/massoterapeuta_dionisio","endereco":"R. Nascimento Fernandes, 1680"},{"nome":"Shirlei Negreiros Esteticista","nicho":"estetica","nota":5.0,"avaliacoes":37,"telefone":"(84) 98115-4606","presenca":"Só rede social","site":"instagram.com/shirleinegreiros","endereco":"Av. Sen. Salgado Filho"},{"nome":"Elizângela Silva Estética Facial","nicho":"estetica","nota":5.0,"avaliacoes":28,"telefone":"(84) 98873-8929","presenca":"Só rede social","site":"instagram.com/elyesteticafacial","endereco":"Av. Romualdo Galvão, 2109"},{"nome":"Bendita Maitê Salão de Beleza","nicho":"salao","nota":4.6,"avaliacoes":171,"telefone":"(84) 98730-9307","presenca":"Página de terceiros","site":"trinks.com (agendamento)","endereco":"Lagoa Nova"},{"nome":"NEOM Clinical","nicho":"odonto","nota":4.2,"avaliacoes":62,"telefone":"(84) 98184-4184","presenca":"Só rede social","site":"link de WhatsApp","endereco":"Av. Xavier da Silveira, 1119"},{"nome":"Ackosmetica","nicho":"estetica","nota":4.7,"avaliacoes":39,"telefone":"(84) 98825-4297","presenca":"Só rede social","site":"facebook.com/Ackosmetica","endereco":"R. Amaro Mesquita, 1676"},{"nome":"Débora Rique Estética Integrativa","nicho":"estetica","nota":4.9,"avaliacoes":21,"telefone":"(84) 98726-8234","presenca":"Página de terceiros","site":"telepesquisa.com (diretório)","endereco":"R. Camilo de Paula, 1785, Tirol"},{"nome":"Oral Kids","nicho":"odonto","nota":5.0,"avaliacoes":17,"telefone":"","presenca":"Sem site","site":"","endereco":"R. Min. Raimundo de Brito, 1890"},{"nome":"Odonto Prime 24h","nicho":"odonto","nota":2.8,"avaliacoes":77,"telefone":"(84) 4009-1000","presenca":"Sem site","site":"","endereco":"Av. Rodrigues Alves, 781, Tirol"},{"nome":"Urgência Odontológica 24hrs","nicho":"odonto","nota":3.1,"avaliacoes":19,"telefone":"(84) 99181-8353","presenca":"Sem site","site":"","endereco":"R. Cel. Auris Coelho, 285"},{"nome":"Oral Unic Implantes Natal","nicho":"odonto","nota":4.9,"avaliacoes":268,"telefone":"(84) 98113-4500","presenca":"Site próprio","site":"oralunic.com.br","endereco":"Av. Sen. Salgado Filho, 1687"},{"nome":"Smile Way Odontologia","nicho":"odonto","nota":5.0,"avaliacoes":342,"telefone":"(84) 99620-8786","presenca":"Site próprio","site":"smilewayodonto.com.br","endereco":"Av. Sen. Salgado Filho, 1718"},{"nome":"Oral Estética","nicho":"odonto","nota":4.9,"avaliacoes":315,"telefone":"(84) 99912-0148","presenca":"Site próprio","site":"oralestetica.com.br","endereco":"R. Jaguarari, 1975"},{"nome":"Royal Face Clínica de Estética","nicho":"estetica","nota":4.9,"avaliacoes":386,"telefone":"(84) 98189-3176","presenca":"Site próprio","site":"royalface.com.br","endereco":"Av. Sen. Salgado Filho, 1656"},{"nome":"Botocenter Natal","nicho":"estetica","nota":5.0,"avaliacoes":315,"telefone":"(84) 99108-9063","presenca":"Site próprio","site":"botocenter.com.br","endereco":"Av. Sen. Salgado Filho, 2190"},{"nome":"MB Estética Avançada","nicho":"estetica","nota":4.9,"avaliacoes":465,"telefone":"(84) 99115-7653","presenca":"Site próprio","site":"mbesteticaavancada.com","endereco":"Av. Prudente de Morais, 1777"},{"nome":"RF Odonto","nicho":"odonto","nota":5.0,"avaliacoes":125,"telefone":"(84) 99945-7431","presenca":"Site próprio","site":"rfodonto.com.br","endereco":"R. Dr. Carlos Passos, 919 A"}];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+function toast(t){ const e=$("#toast"); e.textContent=t; e.classList.add("on"); setTimeout(()=>e.classList.remove("on"),1800); }
+
+/* ---------- algoritmo ---------- */
+const NICHOS = ["Clínica odontológica","Clínica de estética","Escritório de advocacia","Escritório de arquitetura","Clínica de fisioterapia","Psicólogo","Restaurante","Confeitaria","Salão de beleza","Pet shop","Academia","Imobiliária"];
+const REDES = /instagram\.com|facebook\.com|fb\.me|linktr\.ee|wa\.me|whatsapp|tiktok\.com|bio\.link|beacons\.ai/i;
+const TERCEIROS = /wixsite|wix\.com\/|trinks|booksy|odoo\.com|telepesquisa|guiamais|apontador|doctoralia|negocio\.site|business\.site|sites\.google|ifood|goomer|linkr|site123|webnode|blogspot|anota\.ai|cardapioweb/i;
+function presenca(site){ if(!site) return "Sem site"; if(REDES.test(site)) return "Só rede social"; if(TERCEIROS.test(site)) return "Página de terceiros"; return "Site próprio"; }
+function ticket(n){ n=(n||"").toLowerCase();
+  if(/odonto|dent|estét|estet|advoc|arquit|clínic|clinic|médic|medic|fisio|psic|nutri|dermat|oftalm|veterin/.test(n)) return 10;
+  if(/salão|salao|barbear|academ|studio|pilates|imobili/.test(n)) return 7;
+  if(/restaur|confeit|pet|padar|lanch|pizz|hamburg|doceria|bar\b/.test(n)) return 6; return 5; }
+const PRES_PTS = {"Sem site":40,"Só rede social":35,"Página de terceiros":30,"Site próprio":0};
+function tracao(av){ for(const [l,p] of [[500,25],[200,21],[100,17],[50,13],[20,8],[10,4]]) if(av>=l) return p; return 0; }
+function reput(n){ return n>=4.8?15:n>=4.5?11:n>=4.0?6:0; }
+function contato(t){ const d=(t||"").replace(/\D/g,""); if(!d) return 0; const local=d.length>11?d.slice(-11):d; return local.length===11&&local[2]==="9"?10:6; }
+function pontuar(l){
+  const parts = {Presença:PRES_PTS[l.presenca], Tração:tracao(l.avaliacoes), Reputação:reput(l.nota), Ticket:ticket(l.nicho), Contato:contato(l.telefone)};
+  const total = Object.values(parts).reduce((a,b)=>a+b,0);
+  const faixa = l.presenca==="Site próprio" ? "Redesign" : l.nota<4 ? "Frio" : total>=80 ? "Quente" : total>=65 ? "Morno" : "Frio";
+  return {...l, parts, total, faixa};
+}
+const MAX = {Presença:40, Tração:25, Reputação:15, Ticket:10, Contato:10};
+const fmtNota = n => (n||0).toFixed(1).replace(".", ",");
+const fmtInt = n => (n||0).toLocaleString("pt-BR");
+function problema(l){
+  const s=(l.site||"").toLowerCase();
+  if(l.presenca==="Sem site") return "quem pesquisa vocês no Google não encontra um site";
+  if(l.presenca==="Só rede social") return s.includes("facebook")?"o Google manda essas pessoas só pro Facebook":(s.includes("whatsapp")||s.includes("wa.me"))?"o link da ficha cai direto no WhatsApp, sem uma página pra apresentar o negócio":"o Google manda essas pessoas só pro Instagram";
+  if(l.presenca==="Página de terceiros") return "o link da ficha leva pra uma página genérica de terceiros";
+  return "o site atual pode ganhar uma cara nova e converter mais";
+}
+function gancho(l){ return l.faixa==="Frio"&&l.nota<4 ? "Nota baixa: site não resolve, melhor pular por enquanto." : `${fmtInt(l.avaliacoes)} avaliações com nota ${fmtNota(l.nota)}, mas ${problema(l)}.`; }
+function mensagem(l){
+  const nome = LS.get("cacador-nome","Caio") || "Caio";
+  return `Oi, tudo bem? Aqui é o ${nome}.\n\nVi a ${l.nome} no Google: ${fmtInt(l.avaliacoes)} avaliações com nota ${fmtNota(l.nota)}, parabéns pelo trabalho. Só reparei que ${problema(l)}.\n\nEu faço sites sob medida pra negócios aqui da região e montei uma ideia de como poderia ficar o de vocês. Posso te mandar pra dar uma olhada?`;
+}
+function cleanSite(u){ if(!u) return ""; try{ const x=new URL(u); return (x.hostname+x.pathname).replace(/^www\./,"").replace(/\/$/,""); }catch(e){ return u; } }
+
+/* ---------- Google Places ---------- */
+let mapsPromise = null;
+function loadMaps(key){
+  if(window.google?.maps?.importLibrary) return Promise.resolve();
+  if(mapsPromise) return mapsPromise;
+  mapsPromise = new Promise((res, rej) => {
+    window.__gmReady = () => res();
+    window.gm_authFailure = () => rej(new Error("O Google recusou a chave. Confira se a chave está certa, se as duas APIs estão ativas e se este endereço está liberado na restrição de sites."));
+    const s = document.createElement("script");
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&v=weekly&loading=async&language=pt-BR&region=BR&callback=__gmReady`;
+    s.async = true; s.onerror = () => rej(new Error("Não consegui carregar o Google Maps. Confira sua internet."));
+    document.head.appendChild(s);
+  });
+  return mapsPromise;
+}
+async function buscar(query, max){
+  const { Place } = await google.maps.importLibrary("places");
+  const { places } = await Place.searchByText({
+    textQuery: query,
+    fields: ["id","displayName","formattedAddress","rating","userRatingCount","websiteURI","nationalPhoneNumber","googleMapsURI","businessStatus"],
+    language: "pt-BR", region: "br", maxResultCount: max
+  });
+  return places || [];
+}
+
+/* ---------- estado ---------- */
+let hunts = LS.get("cacador-hunts", []);
+let current = null;
+let store = LS.get("cacador-status", {});
+const state = {faixa:"Quente", q:""};
+const STATUS = ["Novo","Contatado","Respondeu","Reunião marcada","Fechado","Perdido"];
+
+/* ---------- formulário ---------- */
+const picked = new Set(LS.get("cacador-nichos", ["Clínica odontológica","Clínica de estética"]));
+function drawNichos(){
+  $("#nichoChips").innerHTML = NICHOS.map(n=>`<button type="button" class="chip" aria-pressed="${picked.has(n)}" data-n="${esc(n)}">${esc(n)}</button>`).join("");
+  $("#nichoChips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ picked.has(b.dataset.n)?picked.delete(b.dataset.n):picked.add(b.dataset.n); LS.set("cacador-nichos",[...picked]); drawNichos(); estimate(); });
+}
+function lerForm(){
+  const extra = $("#nichoExtra").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const nichos = [...picked, ...extra];
+  const cidade = $("#cidade").value.trim();
+  const bairros = $("#bairros").value.split(",").map(s=>s.trim()).filter(Boolean);
+  return {nichos, cidade, bairros, minAv:+$("#minAv").value||0, max:+$("#porBusca").value};
+}
+function estimate(){
+  const f = lerForm(); const n = f.nichos.length * Math.max(1, f.bairros.length);
+  $("#estimate").textContent = n ? `${n} ${n===1?"busca":"buscas"} no Google` : "";
+}
+["#nichoExtra","#bairros","#cidade"].forEach(s=>$(s).addEventListener("input", estimate));
+
+function log(t){ const l=$("#log"); l.textContent += t+"\n"; l.scrollTop=l.scrollHeight; }
+
+$("#huntForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("#formErr").textContent = "";
+  const f = lerForm();
+  if(!f.nichos.length){ $("#formErr").textContent = "Escolha pelo menos um nicho."; return; }
+  if(!f.cidade){ $("#formErr").textContent = "Digite a cidade."; return; }
+  const key = LS.get("cacador-key", "");
+  if(!key){ $("#formErr").innerHTML = 'Falta a chave do Google. Coloque em <a href="#configurar" style="color:inherit">Configurar</a> ou veja o exemplo de Natal.'; return; }
+  const combos = [];
+  for(const n of f.nichos){ for(const b of (f.bairros.length?f.bairros:[""])) combos.push({nicho:n, q:`${n} em ${b?b+", ":""}${f.cidade}`}); }
+  $("#goBtn").disabled = true; $("#progress").classList.add("on"); $("#log").textContent=""; $("#bar").style.width="0";
+  const seen = new Map();
+  try{
+    log("Conectando ao Google…");
+    await loadMaps(key);
+    for(let i=0;i<combos.length;i++){
+      const c = combos[i];
+      log(`Buscando: ${c.q}`);
+      let places = [];
+      try{ places = await buscar(c.q, f.max); }
+      catch(err){ log(`  falhou: ${err.message||err}`); if(i===0) throw err; continue; }
+      let novos = 0;
+      for(const p of places){
+        if(seen.has(p.id)) continue;
+        if(p.businessStatus && p.businessStatus !== "OPERATIONAL") continue;
+        const av = p.userRatingCount||0; if(av < f.minAv) continue;
+        const site = p.websiteURI || "";
+        seen.set(p.id, pontuar({
+          id:p.id, nome:p.displayName, nicho:c.nicho, nota:p.rating||0, avaliacoes:av,
+          telefone:p.nationalPhoneNumber||"", site:cleanSite(site), presenca:presenca(site),
+          endereco:(p.formattedAddress||"").replace(/, Brasil$/,"").replace(/ - RN, \d{5}-\d{3}/,""), maps:p.googleMapsURI||""
+        }));
+        novos++;
+      }
+      log(`  ${places.length} encontrados, ${novos} novos`);
+      $("#bar").style.width = `${Math.round((i+1)/combos.length*100)}%`;
+    }
+    const leads = [...seen.values()].sort((a,b)=>b.total-a.total||b.avaliacoes-a.avaliacoes);
+    const hunt = {id:Date.now(), quando:new Date().toISOString(), titulo:`${f.nichos.join(", ")} · ${f.bairros.length?f.bairros.join(", ")+" · ":""}${f.cidade}`, leads};
+    hunts = [hunt, ...hunts].slice(0,15); LS.set("cacador-hunts", hunts);
+    log(`Pronto: ${leads.length} negócios, ${leads.filter(l=>l.faixa==="Quente").length} quentes.`);
+    abrir(hunt); location.hash = "#resultados";
+  }catch(err){
+    $("#formErr").textContent = err.message || "A busca falhou. Confira a chave em Configurar.";
+  }finally{ $("#goBtn").disabled = false; }
+});
+
+$("#demoBtn").onclick = () => {
+  const leads = DEMO.map(l=>pontuar({...l, id:l.nome, nicho: l.nicho==="odonto"?"Clínica odontológica":l.nicho==="estetica"?"Clínica de estética":"Salão de beleza", maps:""})).sort((a,b)=>b.total-a.total||b.avaliacoes-a.avaliacoes);
+  abrir({id:"demo", quando:"2026-11-12T23:00:00", titulo:"Exemplo · Odontologia e estética · Natal RN", leads}); location.hash="#resultados";
+};
+
+function drawHist(){
+  $("#hist").innerHTML = hunts.length ? hunts.map(h=>`<button class="btn sm" data-h="${h.id}">${esc(h.titulo)} · ${new Date(h.quando).toLocaleDateString("pt-BR")} · ${h.leads.length} negócios</button>`).join("")
+    : `<p class="small muted">Nenhuma caçada ainda. A primeira aparece aqui e fica salva neste navegador.</p>`;
+  $("#hist").querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ abrir(hunts.find(h=>String(h.id)===b.dataset.h)); location.hash="#resultados"; });
+}
+
+/* ---------- resultados ---------- */
+function abrir(h){ current = h; state.faixa = h.leads.some(l=>l.faixa==="Quente")?"Quente":"Todos"; drawHist(); drawRes(); }
+function ring(v,f){ const c={Quente:"#ff5c4d",Morno:"#f5b03c",Frio:"#5aa3ff",Redesign:"#5d6779"}[f]; const r=27,len=2*Math.PI*r;
+  return `<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${r}" fill="none" stroke="#ffffff14" stroke-width="6"/><circle cx="32" cy="32" r="${r}" fill="none" stroke="${c}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${len*v/100} ${len}"/></svg><b>${v}</b>`; }
+function drawRes(){
+  if(!current){
+    $("#resHead").textContent=""; $("#tiles").innerHTML=""; $("#faixaChips").innerHTML=""; $("#count").textContent="";
+    $("#list").innerHTML = `<div class="empty"><h2>Nenhuma caçada aberta</h2><p class="muted">Rode uma caçada ou abra o exemplo de Natal pra ver como fica.</p><a class="btn primary" href="#cacar">Ir pra caçada</a></div>`; return;
+  }
+  const L = current.leads;
+  $("#resHead").textContent = `${current.titulo} · ${new Date(current.quando).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})}`;
+  const cnt = f => L.filter(l=>l.faixa===f).length;
+  $("#tiles").innerHTML = `
+    <div class="tile"><b>${L.length}</b><span>negócios analisados</span></div>
+    <div class="tile"><b>${L.filter(l=>l.presenca!=="Site próprio").length}</b><span>sem site próprio</span></div>
+    <div class="tile hot"><b>${cnt("Quente")}</b><span>quentes pra abordar já</span></div>
+    <div class="tile"><b>${cnt("Morno")}</b><span>mornos na fila</span></div>`;
+  $("#faixaChips").innerHTML = ["Quente","Morno","Frio","Redesign","Todos"].map(o=>`<button class="chip f" data-f="${o}" aria-pressed="${state.faixa===o}">${o}${o!=="Todos"?" "+cnt(o):""}</button>`).join("");
+  $("#faixaChips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ state.faixa=b.dataset.f; drawRes(); });
+  const q = state.q.trim().toLowerCase();
+  const rows = L.filter(l=>(state.faixa==="Todos"||l.faixa===state.faixa)&&(!q||(l.nome+" "+l.endereco).toLowerCase().includes(q)));
+  $("#count").textContent = `${rows.length} ${rows.length===1?"negócio":"negócios"} na lista`;
+  $("#list").innerHTML = rows.map(l=>{
+    const st = store[l.id] || "Novo";
+    const bars = Object.entries(l.parts).map(([k,v])=>`<span>${k}</span><div class="bar"><i style="width:${v/MAX[k]*100}%"></i></div><span class="v">${v}/${MAX[k]}</span>`).join("");
+    return `<article class="card" data-faixa="${l.faixa}">
+      <div class="score" aria-label="${l.total} pontos">${ring(l.total,l.faixa)}</div>
+      <div class="main">
+        <h3 class="name">${esc(l.nome)}</h3>
+        <div class="pills"><span class="pill ${l.faixa}">${l.faixa}</span><span class="pill">${l.presenca}</span><span class="pill">${esc(l.nicho)}</span></div>
+        <div class="meta"><span>★ ${fmtNota(l.nota)} · ${fmtInt(l.avaliacoes)} avaliações</span><span>${esc(l.telefone||"sem telefone")}</span><span>${esc(l.endereco)}</span>${l.site?`<span>Hoje: ${esc(l.site)}</span>`:""}${l.maps?`<a href="${esc(l.maps)}" target="_blank" rel="noopener">Ver no Maps</a>`:""}</div>
+        <p>${esc(gancho(l))}</p>
+        <div class="actions">
+          ${l.faixa!=="Frio"||l.nota>=4?`<button class="btn sm primary" data-msg="${esc(l.id)}">Montar mensagem</button>`:""}
+          <button class="btn sm" data-why>Ver cálculo</button>
+          <label class="small muted" for="st-${esc(l.id)}">Status</label>
+          <select class="status" id="st-${esc(l.id)}" data-st="${esc(l.id)}">${STATUS.map(s=>`<option${s===st?" selected":""}>${s}</option>`).join("")}</select>
+        </div>
+      </div>
+      <div class="breakdown"><div class="bars">${bars}</div></div>
+    </article>`; }).join("") || `<p class="muted">Nenhum negócio nesse filtro.</p>`;
+  $("#list").querySelectorAll("[data-why]").forEach(b=>b.onclick=()=>{ const c=b.closest(".card"); c.classList.toggle("open"); b.textContent=c.classList.contains("open")?"Esconder cálculo":"Ver cálculo"; });
+  $("#list").querySelectorAll("[data-st]").forEach(s=>s.onchange=()=>{ store[s.dataset.st]=s.value; LS.set("cacador-status",store); });
+  $("#list").querySelectorAll("[data-msg]").forEach(b=>b.onclick=()=>openMsg(current.leads.find(l=>String(l.id)===b.dataset.msg)));
+}
+$("#busca").oninput = e => { state.q = e.target.value; drawRes(); };
+
+function openMsg(l){
+  $("#dlgTitle").textContent = l.nome; $("#msg").value = mensagem(l);
+  const d = (l.telefone||"").replace(/\D/g,""); const n = d.length>=10 ? "55"+d.slice(-11) : "";
+  $("#dlgPhone").textContent = l.telefone ? `Telefone: ${l.telefone}${contato(l.telefone)===10?"":" (fixo, pode não ter WhatsApp)"}` : "Sem telefone na ficha. Tente pelo Instagram.";
+  const wa = $("#waBtn"); const upd = () => { wa.href = n ? `https://wa.me/${n}?text=${encodeURIComponent($("#msg").value)}` : "#"; wa.style.display = n ? "" : "none"; };
+  upd(); $("#msg").oninput = upd; $("#dlg").showModal();
+}
+$("#copyBtn").onclick = async () => { try{ await navigator.clipboard.writeText($("#msg").value); toast("Mensagem copiada"); }catch(e){ $("#msg").select(); toast("Texto selecionado, é só copiar"); } };
+
+/* ---------- exportar ---------- */
+const COLS = ["Negócio","Faixa","Pontos","WhatsApp / Tel","Status","Presença hoje","Avaliações","Nota","Nicho","Gancho da abordagem","Mensagem pronta","Link atual","Endereço","Google Maps"];
+function linhas(){ return current.leads.map(l=>[l.nome,l.faixa,l.total,l.telefone,store[l.id]||"Novo",l.presenca,l.avaliacoes,l.nota,l.nicho,gancho(l),mensagem(l),l.site,l.endereco,l.maps]); }
+function nomeArquivo(ext){ return `cacada-${current.titulo.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").slice(0,60)}.${ext}`; }
+function baixar(blob, nome){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nome; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500); }
+$("#csvBtn").onclick = () => { if(!current) return toast("Abra uma caçada primeiro");
+  const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
+  const csv = "﻿" + [COLS, ...linhas()].map(r=>r.map(q).join(";")).join("\r\n");
+  baixar(new Blob([csv],{type:"text/csv;charset=utf-8"}), nomeArquivo("csv")); };
+$("#xlsxBtn").onclick = async () => { if(!current) return toast("Abra uma caçada primeiro");
+  try{
+    if(!window.XLSX) await new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    const ws = XLSX.utils.aoa_to_sheet([COLS, ...linhas()]);
+    ws["!cols"] = [32,11,8,17,15,19,11,6,24,60,60,32,40,30].map(w=>({wch:w}));
+    ws["!autofilter"] = {ref: `A1:N${current.leads.length+1}`};
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Leads");
+    XLSX.writeFile(wb, nomeArquivo("xlsx"));
+  }catch(e){ toast("Não deu pra gerar o Excel. Use o CSV."); } };
+$("#copyTsvBtn").onclick = async () => { if(!current) return toast("Abra uma caçada primeiro");
+  const tsv = [COLS, ...linhas()].map(r=>r.map(v=>String(v??"").replace(/[\t\n]+/g," ")).join("\t")).join("\n");
+  try{ await navigator.clipboard.writeText(tsv); toast("Copiado. Cole na célula A1 da planilha"); }catch(e){ toast("Seu navegador bloqueou a cópia. Use o CSV."); } };
+
+/* ---------- configurar ---------- */
+function drawKey(){
+  const k = LS.get("cacador-key",""); $("#apiKey").value = k;
+  $("#keyState").textContent = k ? "Chave salva neste navegador." : "Nenhuma chave salva ainda.";
+  $("#keyState").className = "keystate " + (k?"ok":"no");
+  $("#keyBadge").textContent = k ? "Google conectado" : "Modo exemplo · falta a chave";
+}
+$("#saveKey").onclick = () => { LS.set("cacador-key", $("#apiKey").value.trim()); mapsPromise = null; drawKey(); toast("Chave salva"); };
+$("#seuNome").value = LS.get("cacador-nome","Caio");
+$("#seuNome").oninput = e => LS.set("cacador-nome", e.target.value.trim());
+
+/* ---------- sociedade ---------- */
+function calc(){ const v=+$("#valor").value||0, m=+$("#mensal").value||0; const brl=x=>x.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  $("#calcout").innerHTML = `<div><span>Caçador (30%)</span><b>${brl(v*.3)}</b></div><div><span>Produção (50%)</span><b>${brl(v*.5)}</b></div><div><span>Caixa (20%)</span><b>${brl(v*.2)}</b></div><div><span>10 clientes na manutenção, por mês</span><b>${brl(m*10)}</b></div>`; }
+$("#valor").oninput = calc; $("#mensal").oninput = calc;
+
+/* ---------- rotas ---------- */
+const VIEWS = ["cacar","resultados","configurar","metodo","sociedade"];
+function route(){ const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "cacar";
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on", s.id==="v-"+v));
+  document.querySelectorAll(".tabs a").forEach(a=>{ if(a.dataset.view===v) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+  window.scrollTo(0,0); }
+window.addEventListener("hashchange", route);
+
+drawNichos(); estimate(); drawKey(); drawHist(); calc();
+if(hunts.length) abrir(hunts[0]); else drawRes();
+route();
+</script>
+</body>
+</html>
